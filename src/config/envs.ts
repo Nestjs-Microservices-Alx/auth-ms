@@ -3,7 +3,7 @@ import * as joi from 'joi';
 
 interface EnvVars {
   PORT: number;
-  DATABASE_URL: string;
+  MONGO_URL: string;
 
   NATS_SERVERS: string;
 }
@@ -12,7 +12,7 @@ interface EnvVars {
 const envsSchema = joi
   .object({
     PORT: joi.number().required(), // ya lo parsea a number
-    DATABASE_URL: joi.string().required(),
+    MONGO_URL: joi.string().required(),
 
     NATS_SERVERS: joi.array().items(joi.string()).required(),
   })
@@ -30,7 +30,7 @@ const envsVars: EnvVars = value;
 
 export const envs = {
   PORT: envsVars.PORT,
-  DATABASE_URL: envsVars.DATABASE_URL, // aunq no se use fuera d prisma, lo incluimos para q se valide
+  MONGO_URL: envsVars.MONGO_URL, // aunq no se use fuera d prisma, lo incluimos para q se valide
 
   NATS_SERVERS: envsVars.NATS_SERVERS,
 };
