@@ -6,6 +6,9 @@ interface EnvVars {
   MONGO_URL: string;
 
   NATS_SERVERS: string;
+
+  // Auth
+  JWT_SECRET: string;
 }
 
 // validate envs with joi schema
@@ -15,6 +18,9 @@ const envsSchema = joi
     MONGO_URL: joi.string().required(),
 
     NATS_SERVERS: joi.array().items(joi.string()).required(),
+
+    // Auth
+    JWT_SECRET: joi.string().required(),
   })
   .unknown(true); // allow other envs not defined in schema - process.env
 
@@ -33,4 +39,7 @@ export const envs = {
   MONGO_URL: envsVars.MONGO_URL, // aunq no se use fuera d prisma, lo incluimos para q se valide
 
   NATS_SERVERS: envsVars.NATS_SERVERS,
+
+  // Auth
+  JWT_SECRET: envsVars.JWT_SECRET,
 };

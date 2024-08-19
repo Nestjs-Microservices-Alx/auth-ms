@@ -2,14 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
 
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
 import { PrismaService } from 'src/persistence/services/prisma.service';
 import { LoginUserDto, RegisterUserDto } from './dto';
+import { JwtPayloadType } from './interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly prismaService: PrismaService,
+    private jwtService: JwtService,
+  ) {}
 
   async register(registerDto: RegisterUserDto) {
     try {
@@ -29,15 +34,34 @@ export class AuthService {
       delete savedUser.password;
 
       return {
-        ...savedUser,
+        user: savedUser,
+        token: await this.signJwtToken(user),
       };
     } catch (error) {
       throw new RpcException({ status: 400, message: error.message });
     }
   }
 
-  login(loginDto: LoginUserDto) {
-    return loginDto;
+  async login(loginDto: LoginUserDto) {
+    try {
+      const { email, password } = loginDto;
+      const user = await this.findOne('email', email);
+      const matchPassword = bcrypt.compareSync(password, user?.password || '');
+      if (!user || !matchPassword)
+        throw new RpcException({
+          status: 400,
+          message:
+            'There was a problem logging in. Check your email and password or create an account.',
+        });
+      delete user.password;
+
+      return {
+        user,
+        token: await this.signJwtToken(user),
+      };
+    } catch (error) {
+      throw new RpcException({ status: 400, message: error.message });
+    }
   }
 
   verify(data: any) {
@@ -52,5 +76,10 @@ export class AuthService {
         [attr]: value,
       },
     });
+  }
+
+  private async signJwtToken(user: User) {
+    const payload: JwtPayloadType = { email: user.email, id: user.id };
+    return this.jwtService.sign(payload);
   }
 }
