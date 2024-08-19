@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { User } from '@prisma/client';
 
+import * as bcrypt from 'bcrypt';
+
 import { PrismaService } from 'src/persistence/services/prisma.service';
 import { LoginUserDto, RegisterUserDto } from './dto';
 
@@ -20,12 +22,15 @@ export class AuthService {
       const savedUser = await this.prismaService.user.create({
         data: {
           email,
-          password: password,
+          password: bcrypt.hashSync(password, 10),
           name,
         },
       });
+      delete savedUser.password;
 
-      return savedUser;
+      return {
+        ...savedUser,
+      };
     } catch (error) {
       throw new RpcException({ status: 400, message: error.message });
     }
