@@ -5,6 +5,7 @@ import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
+import { envs } from 'src/config';
 import { PrismaService } from 'src/persistence/services/prisma.service';
 import { LoginUserDto, RegisterUserDto } from './dto';
 import { JwtPayloadType } from './interfaces/jwt-payload.interface';
@@ -19,7 +20,7 @@ export class AuthService {
   async register(registerDto: RegisterUserDto) {
     try {
       const { email, password, name } = registerDto;
-      const user = await this.findOne('email', email);
+      const user = await this.findOneByAttr('email', email);
       if (user)
         throw new RpcException({ status: 400, message: 'User already exists' });
 
@@ -45,7 +46,7 @@ export class AuthService {
   async login(loginDto: LoginUserDto) {
     try {
       const { email, password } = loginDto;
-      const user = await this.findOne('email', email);
+      const user = await this.findOneByAttr('email', email);
       const matchPassword = bcrypt.compareSync(password, user?.password || '');
       if (!user || !matchPassword)
         throw new RpcException({
@@ -64,13 +65,27 @@ export class AuthService {
     }
   }
 
-  verify(data: any) {
-    console.log('data', data);
-    return 'Verify Success!';
+  async verify(token: string) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { sub, iat, exp, ...user } = this.jwtService.verify(token, {
+        secret: envs.JWT_SECRET,
+      });
+      const userExists = await this.findOneByAttr('email', user.email);
+      if (!userExists)
+        throw new RpcException({ status: 401, message: 'Invalid token' });
+
+      return {
+        user,
+        token: await this.signJwtToken(user),
+      };
+    } catch (error) {
+      throw new RpcException({ status: 401, message: 'Invalid token' });
+    }
   }
 
   //
-  findOne(attr: keyof User, value: any): Promise<User | null> {
+  findOneByAttr(attr: keyof User, value: any): Promise<User | null> {
     return this.prismaService.user.findFirst({
       where: {
         [attr]: value,
