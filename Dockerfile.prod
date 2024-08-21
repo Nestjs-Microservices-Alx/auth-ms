@@ -1,0 +1,81 @@
+# ### Nest.js Dockerfile ----------------
+
+# ## 1. deps stage
+FROM node:21-alpine3.19 as deps
+
+WORKDIR /usr/src/app
+COPY pnpm-lock.yaml ./
+COPY package.json ./
+
+# Instalar pnpm globalmente
+RUN npm install -g pnpm
+
+# Instalar dependencias
+RUN pnpm install
+
+
+
+
+
+
+# ## 2. build stage
+FROM node:21-alpine3.19 as build
+
+WORKDIR /usr/src/app
+
+# Instalar pnpm globalmente nuevamente en esta etapa
+RUN npm install -g pnpm
+
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+COPY --from=deps /usr/src/app/pnpm-lock.yaml ./
+COPY --from=deps /usr/src/app/package.json ./
+
+# Copiar código fuente
+COPY . .
+
+# RUN pnpm test # TODO
+
+# Construir el proyecto
+RUN pnpm build
+
+# Solo dependencias de producción
+RUN pnpm install --prod --frozen-lockfile
+
+# prisma
+RUN pnpm exec prisma generate
+
+
+
+
+
+# ## 3. prod stage
+FROM node:21-alpine3.19 as prod
+
+WORKDIR /usr/src/app
+
+# Instalar pnpm globalmente en esta etapa también
+RUN npm install -g pnpm
+
+COPY --from=build /usr/src/app/node_modules ./node_modules
+
+# Copiar código transpilado
+COPY --from=build /usr/src/app/dist ./dist
+
+ENV NODE_ENV=production
+
+# Cambiar a un usuario sin privilegios
+USER node
+
+EXPOSE 3000
+
+# CMD no genera step
+CMD [ "node", "dist/main.js" ]
+
+
+
+
+
+
+# ## Build the Docker image ===========
+# docker build -f Dockerfile.prod -t client_gateway .
+# docker run -d --name client_gateway_container -e PORT=3000 -e NATS_SERVERS=nats://localhost:4222 -p 3000:3000 client_gateway
